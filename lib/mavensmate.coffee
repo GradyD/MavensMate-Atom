@@ -112,7 +112,7 @@ module.exports =
     initializeProject: ->
       self = @
       # TODO: use atom.project.getPaths()
-      if atom.project.getPath() and util.hasMavensMateProjectStructure()
+      if atom.project? and atom.project.getPaths().length > 0 and util.hasMavensMateProjectStructure()
         self.panel = PanelView
         self.panel.addPanelViewItem('Initializing MavensMate project, please wait...', 'info')
         atom.project.mavensMateErrors = {}
@@ -120,14 +120,14 @@ module.exports =
         # instantiate mavensmate panel, show it
         self.panel.toggle()
 
-        console.log 'initializing project from mavensmate.coffee --> '+atom.project.getPath()
+        console.log 'initializing project from mavensmate.coffee --> '+atom.project.getPaths()
 
-        self.mavensmateAdapter.setProject(atom.project.getPath())
+        self.mavensmateAdapter.setProject(atom.project.getPaths()[0])
           .then (result) ->
             self.panel.addPanelViewItem('MavensMate project initialized successfully. Happy coding!', 'success')
             logFetcher = new LogFetcher(self.mavensmateAdapter.client.getProject())
             # attach MavensMate views/handlers to each present and future workspace editor views
-            atom.workspace.eachEditor (editor) ->
+            atom.workspace.observeTextEditors (editor) ->
               self.handleBufferEvents editor
               self.registerGrammars editor
 
@@ -144,7 +144,7 @@ module.exports =
             atom.deserializers.add(self.errorsDeserializer)
 
             atom.commands.add 'atom-workspace', 'mavensmate:view-errors', ->
-              atom.workspaceView.open(util.uris.errorsView)
+              atom.workspace.open(util.uris.errorsView)
 
           .catch (err) ->
             console.error 'error activating mavensmate project'
@@ -263,8 +263,7 @@ module.exports =
       self = @
       buffer = editor.getBuffer()
       if buffer.file? and util.isMetadata(buffer.file.path) and atom.config.get('MavensMate-Atom').mm_compile_on_save
-        @subscribe buffer.on 'saved', ->
-          # console.log('SAVED')
+        editor.onDidSave () ->
           params =
             args:
               operation: 'compile-metadata'
